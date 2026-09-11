@@ -140,19 +140,6 @@
   .status-pill.low{ background:var(--low-bg); color:var(--low); }
   .status-pill.out{ background:var(--out-bg); color:var(--out); }
 
-  .scan-btn{
-    display:flex; align-items:center; justify-content:center; gap:8px; width:100%; margin-bottom:18px;
-    border:1px dashed var(--ink-faint); background:var(--paper-2); color:var(--ink); border-radius:12px; padding:13px; font-weight:600; font-size:13.5px; cursor:pointer;
-  }
-  .scan-btn svg{ width:16px; height:16px; flex:none; }
-  .scan-btn:active{ background:var(--accent-soft); }
-  .scan-progress-bar{ height:6px; border-radius:100px; background:var(--paper-2); overflow:hidden; margin:16px 0 8px; }
-  .scan-progress-fill{ height:100%; background:var(--accent); transition:width 200ms ease; width:0%; }
-  .scan-list{ max-height:42dvh; overflow-y:auto; margin:4px 0 6px; }
-  .scan-item-row{ display:flex; align-items:center; gap:8px; padding:6px 0; }
-  .scan-item-row input.scan-item-name{ flex:1; border:1px solid var(--line); background:var(--paper-2); border-radius:8px; padding:8px 10px; font-size:13.5px; }
-  .scan-empty{ font-size:12.5px; color:var(--ink-faint); text-align:center; padding:8px 0 4px; }
-
   .add-row{ display:flex; gap:8px; padding-top:10px; }
   .add-row input{ flex:1; border:1px solid var(--line); background:var(--paper-2); border-radius:9px; padding:9px 12px; font-size:13.5px; }
   .add-row button{
@@ -364,7 +351,6 @@ const ICONS = {
   trash: '<svg viewBox="0 0 24 24" fill="none"><path d="M5 7h14M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m-9 0 1 12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-12" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   speaker: '<svg viewBox="0 0 24 24" fill="none"><path d="M4 9v6h3.5L13 19V5L7.5 9H4Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M16.5 8.5a5 5 0 0 1 0 7" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M19 6a8.5 8.5 0 0 1 0 12" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>',
   cart: '<svg viewBox="0 0 24 24" fill="none"><path d="M4 5h2l1.6 10.2a1.5 1.5 0 0 0 1.5 1.3h8.1a1.5 1.5 0 0 0 1.48-1.24L20 8H6.3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><circle cx="10" cy="20" r="1.2" fill="currentColor"/><circle cx="16.5" cy="20" r="1.2" fill="currentColor"/></svg>',
-  camera: '<svg viewBox="0 0 24 24" fill="none"><path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h2l1-2h7l1 2h2A1.5 1.5 0 0 1 20 8.5v9A1.5 1.5 0 0 1 18.5 19h-13A1.5 1.5 0 0 1 4 17.5v-9Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="12" cy="13" r="3.2" stroke="currentColor" stroke-width="1.6"/></svg>',
 };
 
 /* ============================== STARTER DATA (carried over from Feed Me) ============================== */
@@ -571,10 +557,7 @@ function renderActiveTab(){
 /* ============================== PANTRY TAB ============================== */
 function renderPantry(){
   const root = document.getElementById('tab-pantry');
-  root.innerHTML = `
-    <button type="button" class="scan-btn" id="scanBtn">${ICONS.camera}<span>Scan a photo to add items</span></button>
-    <input type="file" accept="image/*" capture="environment" id="scanFileInput" style="display:none">
-  ` + categories.map(cat => {
+  root.innerHTML = categories.map(cat => {
     const items = pantryItems.filter(i => i.categoryId === cat.id)
       .sort((a,b) => a.name.localeCompare(b.name));
     const lowCount = items.filter(i => i.status !== 'ok').length;
@@ -617,15 +600,6 @@ function renderPantry(){
     input.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
   });
   initSwipeRows(root);
-
-  const scanBtn = document.getElementById('scanBtn');
-  const scanInput = document.getElementById('scanFileInput');
-  scanBtn.addEventListener('click', () => scanInput.click());
-  scanInput.addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    scanInput.value = '';
-    if (file) handleScanFile(file);
-  });
 }
 
 function itemRowHTML(item){
@@ -828,145 +802,6 @@ function openSheet(id){
 
   document.getElementById('sfAddList').addEventListener('click', () => {
     addToShoppingList(sheetItem.id);
-    close();
-  });
-}
-
-/* ---------- scan a photo (client-side OCR, no API key / backend needed) ---------- */
-const OCR_NOISE_WORDS = new Set([
-  'total','subtotal','tax','cash','change','visa','mastercard','debit','credit','balance','tender',
-  'auth','approved','thank you','thanks','receipt','store','qty','item','items','date','time','order',
-  'number','card','amount due','due','savings','discount','regular','price','sale',
-]);
-
-let tesseractLoadPromise = null;
-function ensureTesseractLoaded(){
-  if (window.Tesseract) return Promise.resolve();
-  if (tesseractLoadPromise) return tesseractLoadPromise;
-  tesseractLoadPromise = new Promise((resolve, reject) => {
-    const s = document.createElement('script');
-    s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@7.0.0/dist/tesseract.min.js';
-    s.onload = () => resolve();
-    s.onerror = () => { tesseractLoadPromise = null; reject(new Error('Failed to load OCR library')); };
-    document.head.appendChild(s);
-  });
-  return tesseractLoadPromise;
-}
-
-function parseOcrTextToItems(text){
-  const seen = new Set();
-  const out = [];
-  const lines = String(text || '').split(/\r?\n/);
-  for (let line of lines){
-    line = line.trim();
-    if (!line) continue;
-    line = line.replace(/^[-*•●–—\d]+[.)]?\s+/, '');
-    line = line.replace(/\s*\$?\d+\.\d{2}\s*$/, '');
-    line = line.replace(/\s+x\s?\d+$/i, '');
-    line = line.trim();
-    if (line.length < 2 || line.length > 60) continue;
-    if (!/[a-zA-Z]/.test(line)) continue;
-    const key = line.toLowerCase();
-    if (OCR_NOISE_WORDS.has(key) || seen.has(key)) continue;
-    seen.add(key);
-    out.push(line);
-    if (out.length >= 40) break;
-  }
-  return out;
-}
-
-function openScanLoadingSheet(){
-  const wrap = document.createElement('div');
-  wrap.className = 'sheet-backdrop';
-  wrap.id = 'scanLoadingBackdrop';
-  wrap.innerHTML = `
-    <div class="sheet" style="text-align:center;">
-      <h3>Reading photo…</h3>
-      <div class="scan-progress-bar"><div class="scan-progress-fill" id="scanProgressFill"></div></div>
-      <p class="set-hint" id="scanProgressLabel">Starting…</p>
-    </div>`;
-  document.body.appendChild(wrap);
-  return wrap;
-}
-
-async function handleScanFile(file){
-  const loadingWrap = openScanLoadingSheet();
-  try{
-    await ensureTesseractLoaded();
-    const { data } = await Tesseract.recognize(file, 'eng', {
-      logger: m => {
-        if (!m.status) return;
-        const fill = document.getElementById('scanProgressFill');
-        const label = document.getElementById('scanProgressLabel');
-        if (fill && typeof m.progress === 'number') fill.style.width = Math.round(m.progress * 100) + '%';
-        if (label) label.textContent = m.status.charAt(0).toUpperCase() + m.status.slice(1) + '…';
-      },
-    });
-    loadingWrap.remove();
-    const candidates = parseOcrTextToItems(data.text);
-    openScanReviewSheet(candidates);
-  } catch(err){
-    loadingWrap.remove();
-    console.error(err);
-    toast('Could not read that photo — try again');
-  }
-}
-
-function openScanReviewSheet(candidates){
-  const wrap = document.createElement('div');
-  wrap.className = 'sheet-backdrop';
-  wrap.id = 'scanReviewBackdrop';
-  const checked = new Set(candidates.map((_, i) => i));
-  wrap.innerHTML = `
-    <div class="sheet">
-      <button class="sheet-close-x" id="scanReviewX">&times;</button>
-      <h3>Add scanned items</h3>
-      ${candidates.length ? `
-        <div class="field"><label>Add to category</label>
-          <select id="scanCatSelect">${categories.map(c => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('')}</select>
-        </div>
-        <div class="scan-list" id="scanList">
-          ${candidates.map((name, i) => `
-            <div class="scan-item-row">
-              <button type="button" class="check checked" data-scan-check="${i}">${ICONS.check}</button>
-              <input type="text" class="scan-item-name" data-scan-name="${i}" value="${esc(name)}">
-            </div>`).join('')}
-        </div>
-      ` : `<p class="scan-empty">Couldn't find any text that looked like item names — try a clearer or closer photo, or add items manually.</p>`}
-      <div class="sheet-actions">
-        <button class="btn-close" id="scanReviewCancel">${candidates.length ? 'Cancel' : 'Close'}</button>
-        ${candidates.length ? '<button class="btn-save" id="scanReviewAdd">Add items</button>' : ''}
-      </div>
-    </div>`;
-  document.body.appendChild(wrap);
-
-  const close = () => wrap.remove();
-  wrap.addEventListener('click', e => { if (e.target === wrap) close(); });
-  document.getElementById('scanReviewX').addEventListener('click', close);
-  document.getElementById('scanReviewCancel').addEventListener('click', close);
-
-  wrap.querySelectorAll('[data-scan-check]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const i = +btn.dataset.scanCheck;
-      if (checked.has(i)){ checked.delete(i); btn.classList.remove('checked'); }
-      else { checked.add(i); btn.classList.add('checked'); }
-    });
-  });
-
-  const addBtn = document.getElementById('scanReviewAdd');
-  if (addBtn) addBtn.addEventListener('click', async () => {
-    const categoryId = document.getElementById('scanCatSelect').value;
-    const names = [];
-    wrap.querySelectorAll('[data-scan-name]').forEach(inp => {
-      const i = +inp.dataset.scanName;
-      if (!checked.has(i)) return;
-      const v = inp.value.trim();
-      if (v) names.push(v);
-    });
-    if (!names.length){ toast('No items selected'); close(); return; }
-    addBtn.disabled = true;
-    for (const name of names) await addPantryItem(categoryId, name);
-    toast(`Added ${names.length} item${names.length === 1 ? '' : 's'}`);
     close();
   });
 }
