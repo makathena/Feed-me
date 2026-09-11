@@ -140,6 +140,17 @@
   .status-pill.low{ background:var(--low-bg); color:var(--low); }
   .status-pill.out{ background:var(--out-bg); color:var(--out); }
 
+  .search-row{ position:relative; margin-bottom:18px; }
+  .search-row input{
+    width:100%; border:1px solid var(--line); background:var(--paper-2); border-radius:11px;
+    padding:11px 36px 11px 14px; font-size:14px;
+  }
+  .search-clear{
+    position:absolute; right:6px; top:50%; transform:translateY(-50%); width:26px; height:26px; border-radius:50%;
+    border:none; background:transparent; color:var(--ink-faint); font-size:17px; cursor:pointer; line-height:1;
+  }
+  .search-clear:hover{ color:var(--ink); }
+
   .add-row{ display:flex; gap:8px; padding-top:10px; }
   .add-row input{ flex:1; border:1px solid var(--line); background:var(--paper-2); border-radius:9px; padding:9px 12px; font-size:13.5px; }
   .add-row button{
@@ -404,6 +415,7 @@ let pantryItems = [];   // {id, name, categoryId, status, extra, photoData, stor
 let shopExtras = [];    // {id, name, store, saleTag}
 let priceWatches = [];  // {id, name, targetPrice, stores, lastPrice, lastStore, lastCheckedAt}
 let activeTab = 'pantry';
+let pantrySearchQuery = '';
 let sheetItem = null;   // pantry item currently open in the detail sheet
 let unsubs = [];
 
@@ -557,9 +569,19 @@ function renderActiveTab(){
 /* ============================== PANTRY TAB ============================== */
 function renderPantry(){
   const root = document.getElementById('tab-pantry');
-  root.innerHTML = categories.map(cat => {
-    const items = pantryItems.filter(i => i.categoryId === cat.id)
+
+  const prevSearch = document.getElementById('pantrySearchInput');
+  const searchHadFocus = prevSearch && document.activeElement === prevSearch;
+  const searchCaret = searchHadFocus ? prevSearch.selectionStart : null;
+
+  const q = pantrySearchQuery.trim().toLowerCase();
+  let totalMatches = 0;
+
+  const shelvesHTML = categories.map(cat => {
+    const items = pantryItems.filter(i => i.categoryId === cat.id && (!q || i.name.toLowerCase().includes(q)))
       .sort((a,b) => a.name.localeCompare(b.name));
+    if (q && items.length === 0) return '';
+    totalMatches += items.length;
     const lowCount = items.filter(i => i.status !== 'ok').length;
     return `
       <section class="shelf" data-cat="${esc(cat.id)}">
@@ -568,12 +590,36 @@ function renderPantry(){
           <div class="count">${items.length} item${items.length===1?'':'s'}${lowCount ? ' · ' + lowCount + ' need' + (lowCount===1?'s':'') + ' restock' : ''}</div>
         </div>
         ${items.length === 0 ? '<div class="empty-note">Nothing here yet.</div>' : items.map(itemRowHTML).join('')}
+        ${q ? '' : `
         <div class="add-row">
           <input type="text" placeholder="Add item to ${esc(cat.name)}…" data-add-cat="${esc(cat.id)}">
           <button type="button" data-add-btn="${esc(cat.id)}">+</button>
-        </div>
+        </div>`}
       </section>`;
   }).join('');
+
+  root.innerHTML = `
+    <div class="search-row">
+      <input type="text" id="pantrySearchInput" placeholder="Search pantry…" value="${esc(pantrySearchQuery)}">
+      ${pantrySearchQuery ? '<button type="button" class="search-clear" id="pantrySearchClear" aria-label="Clear search">&times;</button>' : ''}
+    </div>
+  ` + (q && totalMatches === 0 ? `<div class="empty-note">No items match "${esc(pantrySearchQuery)}"</div>` : shelvesHTML);
+
+  const searchInput = document.getElementById('pantrySearchInput');
+  searchInput.addEventListener('input', () => {
+    pantrySearchQuery = searchInput.value;
+    renderPantry();
+  });
+  if (searchHadFocus){
+    searchInput.focus();
+    searchInput.setSelectionRange(searchCaret, searchCaret);
+  }
+  const searchClear = document.getElementById('pantrySearchClear');
+  if (searchClear) searchClear.addEventListener('click', () => {
+    pantrySearchQuery = '';
+    renderPantry();
+    document.getElementById('pantrySearchInput').focus();
+  });
 
   root.querySelectorAll('[data-item-open]').forEach(el => el.addEventListener('click', () => {
     const wrap = el.closest('.item-row-wrap');
