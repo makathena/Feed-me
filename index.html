@@ -298,11 +298,6 @@
     </div>
   </header>
 
-  <div class="banner" id="introBanner" hidden>
-    <p>This copied over the pantry you already had, so nothing was lost. Edit anything, add more, or clear it all from Settings.</p>
-    <button id="dismissBanner" type="button">Got it</button>
-  </div>
-
   <main>
     <section class="tab" id="tab-pantry"></section>
     <section class="tab" id="tab-shopping" hidden></section>
@@ -498,13 +493,11 @@ async function ensureSeeded(){
     const d = snap.data();
     categories = Array.isArray(d.categories) && d.categories.length ? d.categories : STARTER_CATEGORIES;
     stores = Array.isArray(d.stores) ? d.stores : STARTER_STORES;
-    if (!d.introDismissed) document.getElementById('introBanner').hidden = false;
     return;
   }
   categories = STARTER_CATEGORIES.slice();
   stores = STARTER_STORES.slice();
-  await cfgRef.set({ categories, stores, introDismissed: false, seeded: true }).catch(() => {});
-  document.getElementById('introBanner').hidden = false;
+  await cfgRef.set({ categories, stores, introDismissed: true, seeded: true }).catch(() => {});
   const col = db.collection('pantry');
   for (const [categoryId, name, status, extra, store] of STARTER_PANTRY_ITEMS){
     await col.add({ name, categoryId, status, extra: !!extra, photoData: null, store: store || null, saleTag: null, createdAt: Date.now() }).catch(() => {});
@@ -538,10 +531,6 @@ function subscribeAll(){
 function bindChrome(){
   document.querySelectorAll('.navbtn').forEach(btn => {
     btn.addEventListener('click', () => { activeTab = btn.dataset.tab; syncNav(); renderActiveTab(); });
-  });
-  document.getElementById('dismissBanner').addEventListener('click', () => {
-    document.getElementById('introBanner').hidden = true;
-    db.doc('settings/config').update({ introDismissed: true }).catch(() => {});
   });
   document.addEventListener('pointerdown', (e) => {
     if (openSwipeWrap && !openSwipeWrap.contains(e.target)) closeSwipe(openSwipeWrap);
