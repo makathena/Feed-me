@@ -774,10 +774,13 @@ async function addToShoppingList(id){
     .catch(() => toast('Could not add to shopping list'));
 }
 
+const CATEGORY_DEFAULT_STORE = { spices: 'Indian Store', lentils: 'Indian Store' };
+
 async function addPantryItem(categoryId, name){
   name = (name || '').trim();
   if (!name) return;
-  await db.collection('pantry').add({ name, categoryId, status: 'ok', backupState: 'none', photoData: null, store: null, saleTag: null, createdAt: Date.now() }).catch(() => toast('Could not add item'));
+  const store = CATEGORY_DEFAULT_STORE[categoryId] || null;
+  await db.collection('pantry').add({ name, categoryId, status: 'ok', backupState: 'none', photoData: null, store, saleTag: null, createdAt: Date.now() }).catch(() => toast('Could not add item'));
 }
 
 async function cycleStatus(id){
