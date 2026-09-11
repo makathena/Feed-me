@@ -127,11 +127,15 @@
   .item-name{ font-size:14.5px; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .item-sub{ font-size:11px; color:var(--ink-faint); }
   .extra-flag{
-    flex:none; width:26px; height:26px; border-radius:7px; border:1px solid var(--line); background:transparent;
+    position:relative; flex:none; width:26px; height:26px; border-radius:7px; border:1px solid var(--line); background:transparent;
     display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--ink-faint);
   }
   .extra-flag svg{ width:14px; height:14px; }
   .extra-flag.on{ background:var(--extra-bg); border-color:transparent; color:var(--extra); }
+  .extra-flag .mini-badge{
+    position:absolute; top:-5px; right:-5px; width:14px; height:14px; border-radius:50%; background:var(--extra);
+    color:#fff; font-size:9px; font-weight:700; display:flex; align-items:center; justify-content:center; line-height:1;
+  }
   .status-pill{
     flex:none; appearance:none; border:none; cursor:pointer; font-weight:700; font-size:11px; letter-spacing:0.03em;
     padding:6px 11px; border-radius:100px; text-transform:uppercase;
@@ -406,6 +410,12 @@ const STARTER_PANTRY_ITEMS = [
 
 const STATUS_CYCLE = { ok: 'low', low: 'out', out: 'ok' };
 const STATUS_LABEL = { ok: 'OK', low: 'Low', out: 'Out' };
+const BACKUP_CYCLE = { none: 'opened', opened: 'both', both: 'none' };
+const BACKUP_TITLE = {
+  none: "No backup — tap to mark an opened backup pack you're refilling from",
+  opened: "Opened backup ready to refill from — tap to also mark a sealed backup behind it",
+  both: "Opened backup ready, plus a sealed backup behind it — tap to clear",
+};
 
 /* ============================== STATE ============================== */
 let db = null;
@@ -512,7 +522,7 @@ async function ensureSeeded(){
   await cfgRef.set({ categories, stores, introDismissed: true, seeded: true }).catch(() => {});
   const col = db.collection('pantry');
   for (const [categoryId, name, status, extra, store] of STARTER_PANTRY_ITEMS){
-    await col.add({ name, categoryId, status, extra: !!extra, photoData: null, store: store || null, saleTag: null, createdAt: Date.now() }).catch(() => {});
+    await col.add({ name, categoryId, status, backupState: extra ? 'opened' : 'none', photoData: null, store: store || null, saleTag: null, createdAt: Date.now() }).catch(() => {});
   }
 }
 
@@ -632,11 +642,11 @@ function renderPantry(){
     if (wrap && wrap.classList.contains('open')) { closeSwipe(wrap); return; }
     cycleStatus(el.dataset.statusBtn);
   }));
-  root.querySelectorAll('[data-extra-btn]').forEach(el => el.addEventListener('click', (e) => {
+  root.querySelectorAll('[data-backup-btn]').forEach(el => el.addEventListener('click', (e) => {
     e.stopPropagation();
     const wrap = el.closest('.item-row-wrap');
     if (wrap && wrap.classList.contains('open')) { closeSwipe(wrap); return; }
-    toggleExtra(el.dataset.extraBtn);
+    cycleBackup(el.dataset.backupBtn);
   }));
   root.querySelectorAll('[data-add-btn]').forEach(btn => {
     const catId = btn.dataset.addBtn;
@@ -650,6 +660,7 @@ function renderPantry(){
 
 function itemRowHTML(item){
   const thumb = item.photoData ? `<img class="item-thumb" src="${item.photoData}" alt="">` : '';
+  const backupState = item.backupState || (item.extra ? 'opened' : 'none');
   return `
     <div class="item-row-wrap" data-row-wrap="${esc(item.id)}">
       <div class="item-row-actions">
@@ -661,7 +672,7 @@ function itemRowHTML(item){
         <div class="item-main" data-item-open="${esc(item.id)}">
           <div class="item-name">${esc(item.name)}</div>
         </div>
-        <button type="button" class="extra-flag ${item.extra ? 'on' : ''}" data-extra-btn="${esc(item.id)}" title="${item.extra ? 'Have extra — tap to clear' : 'Have extra — mark that there\'s a backup to refill from'}">${ICONS.extra}</button>
+        <button type="button" class="extra-flag ${backupState !== 'none' ? 'on' : ''}" data-backup-btn="${esc(item.id)}" title="${esc(BACKUP_TITLE[backupState])}">${ICONS.extra}${backupState === 'both' ? '<span class="mini-badge">2</span>' : ''}</button>
         <button type="button" class="status-pill ${item.status}" data-status-btn="${esc(item.id)}">${STATUS_LABEL[item.status]}</button>
       </div>
     </div>`;
@@ -740,7 +751,8 @@ function initSwipeRows(root){
 async function swipeDeleteItem(id){
   const item = pantryItems.find(i => i.id === id);
   if (!item) return;
-  const snapshot = { name: item.name, categoryId: item.categoryId, status: item.status, extra: item.extra, photoData: item.photoData || null, store: item.store, saleTag: item.saleTag, createdAt: item.createdAt };
+  const backupState = item.backupState || (item.extra ? 'opened' : 'none');
+  const snapshot = { name: item.name, categoryId: item.categoryId, status: item.status, backupState, photoData: item.photoData || null, store: item.store, saleTag: item.saleTag, createdAt: item.createdAt };
   try {
     await db.doc('pantry/' + id).delete();
     toast(`Deleted ${item.name}`, 'Undo', async () => {
@@ -765,7 +777,7 @@ async function addToShoppingList(id){
 async function addPantryItem(categoryId, name){
   name = (name || '').trim();
   if (!name) return;
-  await db.collection('pantry').add({ name, categoryId, status: 'ok', extra: false, photoData: null, store: null, saleTag: null, createdAt: Date.now() }).catch(() => toast('Could not add item'));
+  await db.collection('pantry').add({ name, categoryId, status: 'ok', backupState: 'none', photoData: null, store: null, saleTag: null, createdAt: Date.now() }).catch(() => toast('Could not add item'));
 }
 
 async function cycleStatus(id){
@@ -774,10 +786,11 @@ async function cycleStatus(id){
   await db.doc('pantry/' + id).update({ status: STATUS_CYCLE[item.status] }).catch(() => toast('Could not update'));
 }
 
-async function toggleExtra(id){
+async function cycleBackup(id){
   const item = pantryItems.find(i => i.id === id);
   if (!item) return;
-  await db.doc('pantry/' + id).update({ extra: !item.extra }).catch(() => toast('Could not update'));
+  const current = item.backupState || (item.extra ? 'opened' : 'none');
+  await db.doc('pantry/' + id).update({ backupState: BACKUP_CYCLE[current] }).catch(() => toast('Could not update'));
 }
 
 /* ---------- item detail sheet ---------- */
