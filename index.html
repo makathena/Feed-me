@@ -172,20 +172,11 @@
   .ad-link{ display:inline-flex; align-items:center; gap:4px; font-size:12px; font-weight:600; color:var(--accent); text-decoration:none; border:1px solid var(--line); background:var(--paper-2); padding:6px 12px; border-radius:100px; }
   .ad-link:hover{ border-color:var(--accent); }
 
-  .alexa-card{
-    background:var(--paper-2); border:1px solid var(--line); border-radius:14px; padding:14px 16px; margin-bottom:22px;
-  }
-  .alexa-card .cap{ display:flex; align-items:center; gap:6px; margin-bottom:8px; }
-  .alexa-card .cap svg{ width:13px; height:13px; color:var(--accent); }
-  .alexa-phrase{ font-size:14px; line-height:1.6; margin:0 0 10px; }
-  .alexa-phrase em{ font-style:normal; color:var(--ink-faint); }
-  .alexa-actions{ display:flex; gap:8px; align-items:center; }
   .btn-copy{
     border:none; background:var(--accent); color:var(--accent-ink); font-weight:600; font-size:12.5px;
     padding:8px 14px; border-radius:9px; cursor:pointer;
   }
   .btn-copy.done{ background:var(--ok); }
-  .alexa-hint{ font-size:11.5px; color:var(--ink-faint); }
 
   .shop-group-label{ display:flex; align-items:center; gap:8px; font-family:'Public Sans',sans-serif; font-weight:700; font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:var(--ink-faint); margin: 18px 0 6px; }
   .shop-group-label .copy-mini{ margin-left:auto; background:none; border:none; color:var(--accent); font-weight:700; font-size:10.5px; letter-spacing:0.06em; text-transform:none; cursor:pointer; padding:2px 0; }
@@ -244,6 +235,9 @@
   .watch-add input{ border:1px solid var(--line); background:var(--paper-2); border-radius:8px; padding:8px 10px; font-size:13px; width:100%; }
   .watch-add-row{ display:flex; gap:8px; }
   .watch-add-row input.tp{ width:100px; flex:none; }
+  .watch-mode-toggle{ display:flex; gap:6px; }
+  .wmode-btn{ flex:1; border:1px solid var(--line); background:var(--paper-2); color:var(--ink-soft); border-radius:8px; padding:7px 10px; font-size:12px; font-weight:600; cursor:pointer; }
+  .wmode-btn.active{ background:var(--accent); color:var(--accent-ink); border-color:transparent; }
 
   /* ---------- bottom nav ---------- */
   nav.bottom{
@@ -365,7 +359,6 @@ const ICONS = {
   up: '<svg viewBox="0 0 24 24" fill="none"><path d="M6 14l6-6 6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   down: '<svg viewBox="0 0 24 24" fill="none"><path d="M6 10l6 6 6-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   trash: '<svg viewBox="0 0 24 24" fill="none"><path d="M5 7h14M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m-9 0 1 12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-12" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-  speaker: '<svg viewBox="0 0 24 24" fill="none"><path d="M4 9v6h3.5L13 19V5L7.5 9H4Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M16.5 8.5a5 5 0 0 1 0 7" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M19 6a8.5 8.5 0 0 1 0 12" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>',
   cart: '<svg viewBox="0 0 24 24" fill="none"><path d="M4 5h2l1.6 10.2a1.5 1.5 0 0 0 1.5 1.3h8.1a1.5 1.5 0 0 0 1.48-1.24L20 8H6.3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><circle cx="10" cy="20" r="1.2" fill="currentColor"/><circle cx="16.5" cy="20" r="1.2" fill="currentColor"/></svg>',
 };
 
@@ -424,9 +417,10 @@ let categories = [];
 let stores = [];
 let pantryItems = [];   // {id, name, categoryId, status, extra, photoData, store, saleTag}
 let shopExtras = [];    // {id, name, store, saleTag}
-let priceWatches = [];  // {id, name, targetPrice, stores, lastPrice, lastStore, lastCheckedAt}
+let priceWatches = [];  // mode 'price': {id, mode, name, targetPrice, stores, lastPrice, lastStore, lastCheckedAt} — mode 'ad': {id, mode, name, stores, adHit, adDetails, lastCheckedAt}
 let activeTab = 'pantry';
 let pantrySearchQuery = '';
+let watchAddMode = 'price'; // 'price' or 'ad' — which kind of watch the settings-tab form is set to add
 let sheetItem = null;   // pantry item currently open in the detail sheet
 let unsubs = [];
 
@@ -906,10 +900,10 @@ function renderShopping(){
   const root = document.getElementById('tab-shopping');
   const entries = buildShoppingEntries();
   const total = entries.length;
-  const names = entries.map(e => e.name);
-  const phrase = total ? `Alexa, add ${joinWithAnd(names)} to my shopping list.` : '';
 
-  const hits = priceWatches.filter(w => w.active !== false && w.lastPrice != null && w.lastPrice <= w.targetPrice);
+  const priceHits = priceWatches.filter(w => w.mode !== 'ad' && w.active !== false && w.lastPrice != null && w.lastPrice <= w.targetPrice);
+  const adHits = priceWatches.filter(w => w.mode === 'ad' && w.active !== false && w.adHit === true);
+  const hits = [...priceHits, ...adHits];
 
   const groups = stores.map(s => ({ store: s, items: entries.filter(e => e.store === s) })).filter(g => g.items.length);
   const unassigned = entries.filter(e => !e.store || !stores.includes(e.store));
@@ -925,19 +919,14 @@ function renderShopping(){
       <span class="eyebrow">This week's ads</span>
       <a class="ad-link" href="https://www.qfc.com/weeklyad" target="_blank" rel="noopener">QFC →</a>
       <a class="ad-link" href="https://www.safeway.com/weeklyad" target="_blank" rel="noopener">Safeway →</a>
+      <a class="ad-link" href="https://www.tntsupermarket.us/eng/store-flyer" target="_blank" rel="noopener">T&amp;T →</a>
+      <a class="ad-link" href="https://www.costco.com/o/-/warehouse-savings" target="_blank" rel="noopener">Costco →</a>
     </div>
 
-    ${hits.length ? `<div class="hit-banner">🎉 ${hits.map(w => `${esc(w.name)} is $${Number(w.lastPrice).toFixed(2)}${w.lastStore ? ' at ' + esc(w.lastStore) : ''} — under your $${Number(w.targetPrice).toFixed(2)} target`).join('<br>')}</div>` : ''}
-
-    <div class="alexa-card">
-      <div class="cap">${ICONS.speaker}<span class="eyebrow">Say it to Alexa</span></div>
-      ${total ? `
-        <p class="alexa-phrase" id="alexaPhrase">${esc(phrase)}</p>
-        <div class="alexa-actions">
-          <button class="btn-copy" id="copyPhrase" type="button">Copy phrase</button>
-          <span class="alexa-hint">or read it straight to any Echo device</span>
-        </div>` : `<p class="alexa-phrase"><em>Nothing needed right now — the list will fill in as items run low.</em></p>`}
-    </div>
+    ${hits.length ? `<div class="hit-banner">🎉 ${hits.map(w => w.mode === 'ad'
+      ? `${esc(w.name)} is in this week's ad${w.lastStore ? ' at ' + esc(w.lastStore) : ''}${w.adDetails ? ' — ' + esc(w.adDetails) : ''}`
+      : `${esc(w.name)} is $${Number(w.lastPrice).toFixed(2)}${w.lastStore ? ' at ' + esc(w.lastStore) : ''} — under your $${Number(w.targetPrice).toFixed(2)} target`
+    ).join('<br>')}</div>` : ''}
 
     ${groups.map(g => `
       <div class="shop-group-label">
@@ -956,9 +945,6 @@ function renderShopping(){
       <button type="button" id="manualAddBtn">Add</button>
     </div>
   `;
-
-  const copyBtn = document.getElementById('copyPhrase');
-  if (copyBtn) copyBtn.addEventListener('click', () => copyText(phrase, copyBtn));
 
   root.querySelectorAll('[data-copy-group]').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -1056,26 +1042,35 @@ function renderSettings(){
 
     <div class="set-group">
       <div class="set-title">Price watches</div>
-      <p class="set-hint">A daily background check looks for these items in weekly ads and sale pages and emails you if the price drops to your target. Best-effort — coverage depends on what each store publishes online.</p>
-      ${priceWatches.length === 0 ? '<div class="empty-note">No price watches yet.</div>' : priceWatches.map(w => `
+      <p class="set-hint">A daily cloud check tracks prices or watches for weekly-ad appearances on the items below, and emails you when something hits. Best-effort — coverage depends on what each store publishes online.</p>
+      ${priceWatches.length === 0 ? '<div class="empty-note">No price watches yet.</div>' : priceWatches.map(w => {
+        const isAd = w.mode === 'ad';
+        return `
         <div class="watch-row">
           <div class="wtop">
             <span class="wname">${esc(w.name)}</span>
-            <span class="wtarget num">under $${Number(w.targetPrice).toFixed(2)}</span>
+            <span class="wtarget num">${isAd ? 'weekly ad' : 'under $' + Number(w.targetPrice).toFixed(2)}</span>
             <button class="icon-btn" data-watch-del="${esc(w.id)}" title="Remove watch">${ICONS.trash}</button>
           </div>
           <div class="wstores">Checking: ${esc((w.stores || []).join(', ') || '—')}</div>
-          <div class="wfound ${w.lastPrice != null && w.lastPrice <= w.targetPrice ? 'hit' : ''}">
-            ${w.lastCheckedAt ? `Last found: $${Number(w.lastPrice).toFixed(2)}${w.lastStore ? ' at ' + esc(w.lastStore) : ''} · ${new Date(w.lastCheckedAt).toLocaleDateString()}` : 'Not checked yet'}
+          <div class="wfound ${isAd ? (w.adHit ? 'hit' : '') : (w.lastPrice != null && w.lastPrice <= w.targetPrice ? 'hit' : '')}">
+            ${isAd
+              ? (w.lastCheckedAt ? (w.adHit ? `In this week's ad${w.adDetails ? ': ' + esc(w.adDetails) : ''} · ${new Date(w.lastCheckedAt).toLocaleDateString()}` : `Not in this week's ad · ${new Date(w.lastCheckedAt).toLocaleDateString()}`) : 'Not checked yet')
+              : (w.lastCheckedAt ? `Last found: $${Number(w.lastPrice).toFixed(2)}${w.lastStore ? ' at ' + esc(w.lastStore) : ''} · ${new Date(w.lastCheckedAt).toLocaleDateString()}` : 'Not checked yet')}
           </div>
-        </div>`).join('')}
+        </div>`;
+      }).join('')}
       <div class="watch-add">
+        <div class="watch-mode-toggle">
+          <button type="button" class="wmode-btn ${watchAddMode === 'price' ? 'active' : ''}" data-wmode="price">Track a price</button>
+          <button type="button" class="wmode-btn ${watchAddMode === 'ad' ? 'active' : ''}" data-wmode="ad">Watch weekly ads</button>
+        </div>
         <input type="text" id="watchName" placeholder="Item name (be specific — brand, size)">
         <div class="watch-add-row">
-          <input type="number" class="tp" id="watchPrice" placeholder="Target $" step="0.01" min="0">
+          ${watchAddMode === 'price' ? '<input type="number" class="tp" id="watchPrice" placeholder="Target $" step="0.01" min="0">' : ''}
           <input type="text" id="watchStores" placeholder="Stores to check, comma-separated">
         </div>
-        <button type="button" class="btn-copy" id="addWatchBtn" style="align-self:flex-start;">Add price watch</button>
+        <button type="button" class="btn-copy" id="addWatchBtn" style="align-self:flex-start;">${watchAddMode === 'price' ? 'Add price watch' : 'Add ad watch'}</button>
       </div>
     </div>
 
@@ -1110,6 +1105,10 @@ function renderSettings(){
   document.getElementById('newStoreBtn').addEventListener('click', addStore);
   document.getElementById('newStoreName').addEventListener('keydown', e => { if (e.key === 'Enter') addStore(); });
 
+  root.querySelectorAll('[data-wmode]').forEach(btn => btn.addEventListener('click', () => {
+    watchAddMode = btn.dataset.wmode;
+    renderSettings();
+  }));
   document.getElementById('addWatchBtn').addEventListener('click', addPriceWatch);
   root.querySelectorAll('[data-watch-del]').forEach(btn => btn.addEventListener('click', () => {
     db.doc('priceWatches/' + btn.dataset.watchDel).delete().catch(() => toast('Could not remove watch'));
@@ -1186,17 +1185,25 @@ function deleteStore(idx){
 
 function addPriceWatch(){
   const name = document.getElementById('watchName').value.trim();
-  const price = parseFloat(document.getElementById('watchPrice').value);
   const storesStr = document.getElementById('watchStores').value.trim();
   if (!name){ toast('Give the item a name'); return; }
-  if (!(price > 0)){ toast('Enter a target price'); return; }
   const watchStores = storesStr ? storesStr.split(',').map(s => s.trim()).filter(Boolean) : [];
-  db.collection('priceWatches').add({
-    name, targetPrice: price, stores: watchStores, lastPrice: null, lastStore: null, lastCheckedAt: null,
-    notifyEmail: 'athenamak@gmail.com', active: true, createdAt: Date.now(),
-  }).catch(() => toast('Could not add price watch'));
+  if (watchAddMode === 'ad'){
+    db.collection('priceWatches').add({
+      mode: 'ad', name, targetPrice: null, stores: watchStores, adHit: false, adDetails: null, lastCheckedAt: null,
+      notifyEmail: 'athenamak@gmail.com', active: true, createdAt: Date.now(),
+    }).catch(() => toast('Could not add ad watch'));
+  } else {
+    const price = parseFloat(document.getElementById('watchPrice').value);
+    if (!(price > 0)){ toast('Enter a target price'); return; }
+    db.collection('priceWatches').add({
+      mode: 'price', name, targetPrice: price, stores: watchStores, lastPrice: null, lastStore: null, lastCheckedAt: null,
+      notifyEmail: 'athenamak@gmail.com', active: true, createdAt: Date.now(),
+    }).catch(() => toast('Could not add price watch'));
+  }
   document.getElementById('watchName').value = '';
-  document.getElementById('watchPrice').value = '';
+  const priceInput = document.getElementById('watchPrice');
+  if (priceInput) priceInput.value = '';
   document.getElementById('watchStores').value = '';
 }
 
