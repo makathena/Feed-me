@@ -215,11 +215,6 @@
   .icon-btn{ flex:none; width:28px; height:28px; border-radius:7px; border:1px solid var(--line); background:transparent; color:var(--ink-soft); cursor:pointer; display:flex; align-items:center; justify-content:center; }
   .icon-btn:disabled{ opacity:0.3; cursor:not-allowed; }
   .icon-btn svg{ width:13px; height:13px; }
-  .danger-zone{ border:1px solid var(--out-bg); background:var(--out-bg); border-radius:12px; padding:14px 16px; }
-  .danger-zone p{ margin:0 0 10px; font-size:12.5px; color:var(--ink); line-height:1.55; }
-  .btn-danger{ border:none; background:var(--out); color:#fff; font-weight:600; font-size:12.5px; padding:8px 14px; border-radius:8px; cursor:pointer; }
-  .btn-quiet{ border:1px solid var(--line); background:transparent; color:var(--ink-soft); font-weight:600; font-size:12.5px; padding:8px 14px; border-radius:8px; cursor:pointer; }
-  .inline-confirm{ display:flex; align-items:center; gap:8px; font-size:12.5px; }
   .store-row{ display:flex; align-items:center; gap:8px; padding:7px 0; }
   .store-row input[type=text]{ flex:1; border:1px solid var(--line); background:var(--paper-2); border-radius:8px; padding:7px 10px; font-size:13.5px; }
   .set-hint{ font-size:12px; color:var(--ink-faint); line-height:1.55; margin:0 0 12px; }
@@ -1074,13 +1069,6 @@ function renderSettings(){
       </div>
     </div>
 
-    <div class="set-group">
-      <div class="set-title">Starter data</div>
-      <div class="danger-zone" id="dangerZone">
-        <p>Clear every pantry item and shopping list entry. This can't be undone — use it if you're ready to start fresh with your own inventory.</p>
-        <button class="btn-danger" id="clearAllBtn">Clear all items</button>
-      </div>
-    </div>
   `;
 
   root.querySelectorAll('[data-cat-name]').forEach(inp => {
@@ -1113,18 +1101,6 @@ function renderSettings(){
   root.querySelectorAll('[data-watch-del]').forEach(btn => btn.addEventListener('click', () => {
     db.doc('priceWatches/' + btn.dataset.watchDel).delete().catch(() => toast('Could not remove watch'));
   }));
-
-  document.getElementById('clearAllBtn').addEventListener('click', () => {
-    const zone = document.getElementById('dangerZone');
-    zone.innerHTML = `
-      <p>Are you sure? This deletes every pantry and shopping item for the whole household.</p>
-      <div class="inline-confirm">
-        <button class="btn-danger" id="clearAllYes">Yes, clear everything</button>
-        <button class="btn-quiet" id="clearAllNo">Cancel</button>
-      </div>`;
-    document.getElementById('clearAllYes').addEventListener('click', clearAllData);
-    document.getElementById('clearAllNo').addEventListener('click', renderSettings);
-  });
 }
 
 function moveCategory(idx, dir){
@@ -1205,13 +1181,6 @@ function addPriceWatch(){
   const priceInput = document.getElementById('watchPrice');
   if (priceInput) priceInput.value = '';
   document.getElementById('watchStores').value = '';
-}
-
-async function clearAllData(){
-  for (const i of pantryItems) await db.doc('pantry/' + i.id).delete().catch(() => {});
-  for (const i of shopExtras) await db.doc('shopping/' + i.id).delete().catch(() => {});
-  toast('Cleared');
-  renderSettings();
 }
 
 /* ============================== BOOT ============================== */
