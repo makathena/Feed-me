@@ -167,9 +167,10 @@
   .shop-summary .big{ font-family:'Fraunces',serif; font-weight:650; font-size:30px; }
   .shop-summary .lbl{ color:var(--ink-soft); font-size:13.5px; }
 
-  .ad-links{ display:flex; align-items:center; gap:8px; margin-bottom:16px; flex-wrap:wrap; }
-  .ad-links .eyebrow{ margin-right:2px; }
-  .ad-link{ display:inline-flex; align-items:center; gap:4px; font-size:12px; font-weight:600; color:var(--accent); text-decoration:none; border:1px solid var(--line); background:var(--paper-2); padding:6px 12px; border-radius:100px; }
+  .ad-links{ display:flex; align-items:center; gap:8px; margin-bottom:16px; flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none; -webkit-overflow-scrolling:touch; }
+  .ad-links::-webkit-scrollbar{ display:none; }
+  .ad-links .eyebrow{ margin-right:2px; flex:none; }
+  .ad-link{ display:inline-flex; align-items:center; gap:4px; font-size:12px; font-weight:600; color:var(--accent); text-decoration:none; border:1px solid var(--line); background:var(--paper-2); padding:6px 12px; border-radius:100px; flex:none; white-space:nowrap; }
   .ad-link:hover{ border-color:var(--accent); }
 
   .btn-copy{
@@ -955,10 +956,10 @@ function renderShopping(){
 
     <div class="ad-links">
       <span class="eyebrow">This week's ads</span>
-      <a class="ad-link" href="https://www.qfc.com/weeklyad" target="_blank" rel="noopener">QFC →</a>
-      <a class="ad-link" href="https://www.safeway.com/set-store.html?storeId=1600&target=weeklyad" target="_blank" rel="noopener">Safeway →</a>
-      <a class="ad-link" href="https://www.tntsupermarket.us/eng/store-flyer" target="_blank" rel="noopener">T&amp;T →</a>
-      <a class="ad-link" href="https://www.costco.com/o/-/warehouse-savings" target="_blank" rel="noopener">Costco →</a>
+      <a class="ad-link" href="https://www.qfc.com/weeklyad" target="_blank" rel="noopener">QFC</a>
+      <a class="ad-link" href="https://www.safeway.com/set-store.html?storeId=1600&target=weeklyad" target="_blank" rel="noopener">Safeway</a>
+      <a class="ad-link" href="https://www.tntsupermarket.us/eng/store-flyer" target="_blank" rel="noopener">T&amp;T</a>
+      <a class="ad-link" href="https://www.costco.com/o/-/warehouse-savings" target="_blank" rel="noopener">Costco</a>
     </div>
 
     ${hits.length ? `<div class="hit-banner">
