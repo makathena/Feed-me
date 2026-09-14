@@ -122,7 +122,6 @@
     background:var(--paper); touch-action:pan-y; transform:translateX(0); transition:transform 200ms ease;
   }
   .item-row.dragging{ transition:none; }
-  .item-thumb{ width:28px; height:28px; border-radius:7px; object-fit:cover; flex:none; background:var(--paper-2); border:1px solid var(--line); }
   .item-main{ flex:1; min-width:0; display:flex; flex-direction:column; gap:1px; cursor:pointer; }
   .item-name{ font-size:14.5px; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .item-sub{ font-size:11px; color:var(--ink-faint); }
@@ -269,9 +268,14 @@
   .field{ margin-bottom:14px; }
   .field label{ display:block; font-size:11px; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; color:var(--ink-faint); margin-bottom:6px; }
   .field input[type=text], .field select{ width:100%; border:1px solid var(--line); background:var(--paper-2); border-radius:9px; padding:10px 12px; font-size:14.5px; }
-  .photo-row{ display:flex; gap:10px; align-items:center; }
+  .photo-row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
   .photo-row img{ width:56px; height:56px; border-radius:10px; object-fit:cover; border:1px solid var(--line); }
-  .photo-row label.upl{ border:1px solid var(--line); border-radius:9px; padding:9px 12px; font-size:12.5px; cursor:pointer; color:var(--ink-soft); }
+  .photo-thumb-btn{ padding:0; border:none; background:none; cursor:pointer; line-height:0; }
+  .photo-row label.upl, .photo-row button.upl{ border:1px solid var(--line); border-radius:9px; padding:9px 12px; font-size:12.5px; cursor:pointer; color:var(--ink-soft); background:none; }
+  .photo-row button.upl-remove{ color:var(--out); border-color:var(--out-bg); }
+  .lightbox-backdrop{ position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:70; display:flex; align-items:center; justify-content:center; padding:24px; }
+  .lightbox-backdrop img{ max-width:100%; max-height:100%; border-radius:12px; object-fit:contain; }
+  .lightbox-close{ position:absolute; top:16px; right:16px; background:rgba(255,255,255,0.15); border:none; color:#fff; width:36px; height:36px; border-radius:50%; font-size:20px; cursor:pointer; }
   .sheet-actions{ display:flex; gap:10px; margin-top:18px; }
   .sheet-actions button{ flex:1; border:none; border-radius:11px; padding:12px; font-weight:600; font-size:13.5px; cursor:pointer; }
   .btn-list-add{
@@ -646,7 +650,6 @@ function renderPantry(){
 }
 
 function itemRowHTML(item){
-  const thumb = item.photoData ? `<img class="item-thumb" src="${item.photoData}" alt="">` : '';
   const backupState = item.backupState || (item.extra ? 'opened' : 'none');
   return `
     <div class="item-row-wrap" data-row-wrap="${esc(item.id)}">
@@ -655,7 +658,6 @@ function itemRowHTML(item){
         <button type="button" class="act-delete" data-delete-btn="${esc(item.id)}">${ICONS.trash}<span>Delete</span></button>
       </div>
       <div class="item-row" data-row="${esc(item.id)}">
-        ${thumb}
         <div class="item-main" data-item-open="${esc(item.id)}">
           <div class="item-name">${esc(item.name)}</div>
         </div>
@@ -806,6 +808,16 @@ async function cycleBackup(id){
 }
 
 /* ---------- item detail sheet ---------- */
+function openPhotoLightbox(dataUrl){
+  const wrap = document.createElement('div');
+  wrap.className = 'lightbox-backdrop';
+  wrap.innerHTML = `<img src="${dataUrl}" alt=""><button type="button" class="lightbox-close" aria-label="Close">&times;</button>`;
+  document.body.appendChild(wrap);
+  const close = () => wrap.remove();
+  wrap.addEventListener('click', e => { if (e.target === wrap) close(); });
+  wrap.querySelector('.lightbox-close').addEventListener('click', close);
+}
+
 function openSheet(id){
   sheetItem = pantryItems.find(i => i.id === id);
   if (!sheetItem) return;
@@ -828,8 +840,9 @@ function openSheet(id){
       </div>
       <div class="field"><label>Photo</label>
         <div class="photo-row">
-          ${sheetItem.photoData ? `<img src="${sheetItem.photoData}" alt="">` : ''}
+          ${sheetItem.photoData ? `<button type="button" class="photo-thumb-btn" id="sfPhotoZoom" title="Tap to view larger"><img src="${sheetItem.photoData}" alt=""></button>` : ''}
           <label class="upl">${sheetItem.photoData ? 'Replace' : 'Add photo'}<input type="file" accept="image/*" id="sfPhoto" style="display:none"></label>
+          ${sheetItem.photoData ? '<button type="button" class="upl upl-remove" id="sfPhotoDelete">Remove</button>' : ''}
         </div>
       </div>
       <button type="button" class="btn-list-add" id="sfAddList">${ICONS.cart}<span>Add to shopping list</span></button>
@@ -843,6 +856,16 @@ function openSheet(id){
   const close = () => wrap.remove();
   wrap.addEventListener('click', e => { if (e.target === wrap) close(); });
   document.getElementById('sheetX').addEventListener('click', close);
+
+  const zoomBtn = document.getElementById('sfPhotoZoom');
+  if (zoomBtn) zoomBtn.addEventListener('click', () => openPhotoLightbox(sheetItem.photoData));
+
+  const deletePhotoBtn = document.getElementById('sfPhotoDelete');
+  if (deletePhotoBtn) deletePhotoBtn.addEventListener('click', async () => {
+    await db.doc('pantry/' + sheetItem.id).update({ photoData: null }).catch(() => toast('Could not remove photo'));
+    toast('Photo removed');
+    close();
+  });
 
   document.getElementById('sfPhoto').addEventListener('change', async (e) => {
     const file = e.target.files[0];
