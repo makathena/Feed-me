@@ -164,6 +164,7 @@
 
   /* ---------- shopping tab ---------- */
   .shop-summary{ display:flex; align-items:baseline; gap:8px; margin-bottom:16px; }
+  .shop-summary .copy-list-btn{ margin-left:auto; }
   .shop-summary .big{ font-family:'Fraunces',serif; font-weight:650; font-size:30px; }
   .shop-summary .lbl{ color:var(--ink-soft); font-size:13.5px; }
 
@@ -179,7 +180,6 @@
   .btn-copy.done{ background:var(--ok); }
 
   .shop-group-label{ display:flex; align-items:center; gap:8px; font-family:'Public Sans',sans-serif; font-weight:700; font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:var(--ink-faint); margin: 18px 0 6px; }
-  .shop-group-label .copy-mini{ margin-left:auto; background:none; border:none; color:var(--accent); font-weight:700; font-size:10.5px; letter-spacing:0.06em; text-transform:none; cursor:pointer; padding:2px 0; }
   .hit-banner{ background:var(--ok-bg); color:var(--ok); border-radius:12px; padding:4px 6px; font-size:13px; margin-bottom:16px; font-weight:600; line-height:1.5; }
   .hit-row{ display:flex; align-items:flex-start; gap:8px; padding:8px 8px; }
   .hit-row span{ flex:1; }
@@ -444,13 +444,6 @@ function setSyncState(on, label){
   const dot = document.querySelector('#syncIndicator .dot');
   dot.classList.toggle('off', !on);
   document.getElementById('syncLabel').textContent = label;
-}
-
-function joinWithAnd(list){
-  if (list.length === 0) return '';
-  if (list.length === 1) return list[0];
-  if (list.length === 2) return list[0] + ' and ' + list[1];
-  return list.slice(0, -1).join(', ') + ', and ' + list[list.length - 1];
 }
 
 function resizeImageToDataURL(file, maxDim, quality){
@@ -934,6 +927,7 @@ function renderShopping(){
     <div class="shop-summary">
       <div class="big num">${total}</div>
       <div class="lbl">item${total===1?'':'s'} to pick up</div>
+      ${total ? '<button class="btn-copy copy-list-btn" type="button" id="copyListBtn">Copy list</button>' : ''}
     </div>
 
     <div class="ad-links">
@@ -957,7 +951,6 @@ function renderShopping(){
     ${groups.map(g => `
       <div class="shop-group-label">
         <span>${g.store ? esc(g.store) : 'No store set'}</span>
-        <button class="copy-mini" type="button" data-copy-group="${esc(g.store)}">Copy</button>
       </div>
       ${g.items.map(shopRowHTML).join('')}
     `).join('')}
@@ -972,12 +965,10 @@ function renderShopping(){
     </div>
   `;
 
-  root.querySelectorAll('[data-copy-group]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const store = btn.dataset.copyGroup;
-      const groupNames = entries.filter(e => (e.store || '') === store).map(e => e.name);
-      copyText(`Alexa, add ${joinWithAnd(groupNames)} to my shopping list.`, btn);
-    });
+  const copyListBtn = document.getElementById('copyListBtn');
+  if (copyListBtn) copyListBtn.addEventListener('click', () => {
+    const text = groups.map(g => `${g.store || 'No store set'}\n${g.items.map(e => `• ${e.name}`).join('\n')}`).join('\n\n');
+    copyText(text, copyListBtn);
   });
 
   root.querySelectorAll('[data-dismiss-hit]').forEach(btn => btn.addEventListener('click', () => {
