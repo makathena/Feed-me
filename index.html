@@ -312,18 +312,18 @@
   </header>
 
   <main>
-    <section class="tab" id="tab-pantry"></section>
-    <section class="tab" id="tab-shopping" hidden></section>
+    <section class="tab" id="tab-pantry" hidden></section>
+    <section class="tab" id="tab-shopping"></section>
     <section class="tab" id="tab-settings" hidden></section>
   </main>
 
   <nav class="bottom">
     <div class="bottom-inner">
-      <button class="navbtn active" data-tab="pantry" type="button">
+      <button class="navbtn" data-tab="pantry" type="button">
         <svg viewBox="0 0 24 24" fill="none"><path d="M9 3h6v3.2c1.9.6 3 2 3 3.8v9a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V10c0-1.8 1.1-3.2 3-3.8V3Z" stroke="currentColor" stroke-width="1.7"/></svg>
         <span class="lbl">Pantry</span>
       </button>
-      <button class="navbtn" data-tab="shopping" type="button" style="position:relative">
+      <button class="navbtn active" data-tab="shopping" type="button" style="position:relative">
         <svg viewBox="0 0 24 24" fill="none"><path d="M6 8h13l-1.4 9.2a2 2 0 0 1-2 1.8H9.4a2 2 0 0 1-2-1.8L6 8Z" stroke="currentColor" stroke-width="1.7"/><path d="M9 8V6a3 3 0 0 1 6 0v2" stroke="currentColor" stroke-width="1.7"/></svg>
         <span class="lbl">Shopping</span>
         <span class="badge" id="shopBadge" hidden>0</span>
@@ -422,7 +422,7 @@ let stores = [];
 let pantryItems = [];   // {id, name, categoryId, status, extra, photoData, store, saleTag}
 let shopExtras = [];    // {id, name, store, saleTag}
 let priceWatches = [];  // mode 'price': {id, mode, name, targetPrice, stores, lastPrice, lastStore, lastCheckedAt} — mode 'ad': {id, mode, name, stores, adHit, adDetails, lastCheckedAt}
-let activeTab = 'pantry';
+let activeTab = 'shopping';
 let pantrySearchQuery = '';
 let watchAddMode = 'price'; // 'price' or 'ad' — which kind of watch the settings-tab form is set to add
 let sheetItem = null;   // pantry item currently open in the detail sheet
@@ -960,6 +960,7 @@ function renderShopping(){
       <a class="ad-link" href="https://www.safeway.com/set-store.html?storeId=1600&target=weeklyad" target="_blank" rel="noopener">Safeway</a>
       <a class="ad-link" href="https://www.tntsupermarket.us/eng/store-flyer" target="_blank" rel="noopener">T&amp;T</a>
       <a class="ad-link" href="https://www.costco.com/o/-/warehouse-savings" target="_blank" rel="noopener">Costco</a>
+      <a class="ad-link" href="https://www.wholefoodsmarket.com/sales-flyer?store-id=10153" target="_blank" rel="noopener">Whole Foods</a>
     </div>
 
     ${hits.length ? `<div class="hit-banner">
